@@ -1,10 +1,11 @@
 """
-This module helps to implement an encoder-decoder
-transformer architecture and can be used to train a seq2seq
-model like chatbots and nmt. The inputs to the transformer
-model must be a tf-dataset with two inputs with following
-names: 1: `inputs` which is the input to encoder block and
-2: `dec_inputs` which is the input to decoder block.
+This module helps to implement transformer-based models.
+It can be used to implemenet sequnce to sequence architectures
+like chatbots and nmt.
+The inputs to the transformer model must be a tf-dataset
+with two inputs with following names: 1: `inputs` which is
+the input to encoder block and 2: `dec_inputs` which is the 
+input to decoder block.
 """
 
 import tensorflow as tf
