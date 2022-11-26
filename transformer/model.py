@@ -1,6 +1,6 @@
 """
 This module helps to implement transformer-based models.
-It can be used to implemenet sequnce to sequence architectures
+It can be used to implemenet sequence to sequence architectures
 like chatbots and nmt.
 The inputs to the transformer model must be a tf-dataset
 with two inputs with following names: 1: `inputs` which is
