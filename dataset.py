@@ -18,7 +18,7 @@ class DatasetHp(object):
      we can easily add new parameters to it."""
     start_token: List[int]
     end_token: List[int]
-
+    max_length: int
     max_sample: Union[int, None] = None
 
 
@@ -88,3 +88,28 @@ def load_conversations(lines_filename: str, conversations_filename: str, max_sam
             if max_sample and max_sample >= len(questions):
                 return questions, answers
     return questions, answers
+
+
+def tokenize_and_filter(hparams: DataClassType, tokenizer: tokenizer_type, questions: list,
+                        answers: list) -> Tuple[list, list]:
+    """Converts the clean text into tokens using the given tokenizer."""
+
+    tokenized_questions, tokenized_answers = [], []
+    for (question, answer) in tqdm(zip(questions, answers)):
+        # tokenize sentence
+        sentence1 = hparams.start_token + tokenizer.encode(question) + hparams.end_token
+        sentence2 = hparams.start_token + tokenizer.encode(answer) + hparams.end_token
+
+        # check tokenize sentence length
+        if (len(sentence1) < hparams.max_length) and (len(sentence2) <= hparams.max_length):
+            tokenized_questions.append(sentence1)
+            tokenized_answers.append(sentence2)
+
+    # pad tokenized sentences
+    tokenized_questions = tf.keras.preprocessing.sequence.pad_sequences(
+        tokenized_questions, maxlen=hparams.max_length, padding="post")
+
+    tokenized_answers = tf.keras.preprocessing.sequence.pad_sequences(
+        tokenized_answers, maxlen=hparams.max_length, padding="post")
+
+    return tokenized_questions, tokenized_answers
