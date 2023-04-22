@@ -28,3 +28,23 @@ def remove_contractions(sentence: str) -> str:
     sentence = re.sub(r"n'", "ng", sentence)
     sentence = re.sub(r"'bout", "about", sentence)
     return sentence
+
+
+def preprocess_sentence(sentence: str) -> str:
+    """Clean the input sentence by adding whitespace between punctuations and characters and
+    normalize the sentence."""
+    sentence = sentence.lower().strip()
+
+    # create a space between a word and the punctuation following it.
+    # eg: "he is a boy." => "he is a boy ."
+    sentence = re.sub(r"([?.!,])", r" \1 ", sentence)
+    sentence = re.sub(r'[" "]+', " ", sentence)
+
+    # removing contractions
+    sentence = remove_contractions(sentence)
+
+    # replacing everything with space except (a-z, A-Z, ".", "?", "!", ",")
+    sentence = re.sub(r"[^a-zA-Z?.!,]+", " ", sentence)
+    sentence = sentence.strip()
+
+    return sentence
