@@ -5,7 +5,7 @@ import re
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tqdm import tqdm
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Union, Tuple, List, NewType
 
 tokenizer_type = tfds.deprecated.text.subword_text_encoder.SubwordTextEncoder
@@ -16,9 +16,11 @@ DataClassType = NewType("DataClassType")
 class DatasetHp(object):
     """This class helps to hold all the required hyper-parameters in one place.
      we can easily add new parameters to it."""
-    start_token: List[int]
-    end_token: List[int]
     max_length: int
+    start_token: List[int] = field(default_factory=[0])
+    end_token: List[int] = field(default_factory=[1])
+    vocab_size: int = 2**13
+    batch_size: int = 32
     max_sample: Union[int, None] = None
 
 
@@ -93,7 +95,6 @@ def load_conversations(lines_filename: str, conversations_filename: str, max_sam
 def tokenize_and_filter(hparams: DataClassType, tokenizer: tokenizer_type, questions: list,
                         answers: list) -> Tuple[list, list]:
     """Converts the clean text into tokens using the given tokenizer."""
-
     tokenized_questions, tokenized_answers = [], []
     for (question, answer) in tqdm(zip(questions, answers)):
         # tokenize sentence
@@ -108,8 +109,49 @@ def tokenize_and_filter(hparams: DataClassType, tokenizer: tokenizer_type, quest
     # pad tokenized sentences
     tokenized_questions = tf.keras.preprocessing.sequence.pad_sequences(
         tokenized_questions, maxlen=hparams.max_length, padding="post")
-
     tokenized_answers = tf.keras.preprocessing.sequence.pad_sequences(
         tokenized_answers, maxlen=hparams.max_length, padding="post")
 
     return tokenized_questions, tokenized_answers
+
+
+def get_cornell_dataset(hparams: DataClassType) -> Tuple[tf.data.Dataset, tokenizer_type]:
+
+    # download corpus
+    path_to_zip = tf.keras.utils.get_file(
+        "cornell_movie_dialogs.zip",
+        origin="http://www.cs.cornell.edu/~cristian/data/cornell_movie_dialogs_corpus.zip",
+        extract=True,
+    )
+
+    path_to_dataset = os.path.join(os.path.dirname(path_to_zip), "cornell movie-dialogs corpus")
+
+    # get movie_lines.txt and movie_conversations.txt
+    lines_filename = os.path.join(path_to_dataset, "movie_lines.txt")
+    conversations_filename = os.path.join(path_to_dataset, "movie_conversations.txt")
+
+    print("loading conversations ... ")
+    questions, answers = load_conversations(hparams, lines_filename, conversations_filename)
+
+    print("initializing tokenizer ...")
+    tokenizer = tfds.deprecated.text.SubwordTextEncoder.build_from_corpus(
+        questions + answers, target_vocab_size=hparams.vocab_size)
+    tokenizer.save_to_file(os.path.join("./", "transformer", "tokenizer"))  # save tokenizer
+
+    hparams.start_token = [tokenizer.vocab_size]
+    hparams.end_token = [tokenizer.vocab_size + 1]
+    hparams.vocab_size = tokenizer.vocab_size + 2
+
+    print("tokenization ... ")
+    questions, answers = tokenize_and_filter(hparams, tokenizer, questions, answers)
+
+    dataset = tf.data.Dataset.from_tensor_slices(
+        ({"inputs": questions, "dec_inputs": answers[:, :-1]}, answers[:, 1:])
+    )
+
+    dataset = dataset.cache()
+    dataset = dataset.shuffle(len(questions))
+    dataset = dataset.batch(hparams.batch_size)
+    dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+
+    return dataset, tokenizer
