@@ -2,20 +2,24 @@
 
 import os
 import re
-import dataclasses
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tqdm import tqdm
-from typing import Union, Tuple
+from dataclasses import dataclass
+from typing import Union, Tuple, List, NewType
 
 tokenizer_type = tfds.deprecated.text.subword_text_encoder.SubwordTextEncoder
+DataClassType = NewType("DataClassType")
 
 
-class HyperParameters(object):
-    """This class helps to hold all the required hyper-parameters
-    in one place. we can easily add new parameters to it."""
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+@dataclass
+class DatasetHp(object):
+    """This class helps to hold all the required hyper-parameters in one place.
+     we can easily add new parameters to it."""
+    start_token: List[int]
+    end_token: List[int]
+
+    max_sample: Union[int, None] = None
 
 
 def remove_contractions(sentence: str) -> str:
@@ -84,4 +88,3 @@ def load_conversations(lines_filename: str, conversations_filename: str, max_sam
             if max_sample and max_sample >= len(questions):
                 return questions, answers
     return questions, answers
-
