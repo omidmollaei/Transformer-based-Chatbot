@@ -6,6 +6,7 @@ import dataclasses
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tqdm import tqdm
+from typing import Union
 
 
 def remove_contractions(sentence: str) -> str:
@@ -48,3 +49,29 @@ def preprocess_sentence(sentence: str) -> str:
     sentence = sentence.strip()
 
     return sentence
+
+
+def load_conversations(lines_filename: str, conversations_filename: str, max_sample: Union[int, None] = None):
+    """Loads the conversations from cornel dialog dataset. It works based on structure of this
+    specific dataset and can not be used for other datasets."""
+    # dictionary of line id to text
+    id2line = {}
+    with open(lines_filename, errors="ignore") as file:
+        lines = file.readlines()
+    for line in lines:
+        parts = line.replace("\n", "").split(" +++$+++ ")
+        id2line[parts[0]] = parts[4]
+
+    # Load conversations
+    questions, answers = [], []
+    with open(conversations_filename, "r") as file:
+        lines = file.readlines()
+    for line in tqdm(lines):
+        parts = line.replace("\n", "").split(" +++$+++ ")
+        conversation = [line[1:-1] for line in parts[3][1:-1].split(", ")]
+        for i in range(len(conversation) - 1):
+            questions.append(preprocess_sentence(id2line[conversation[i]]))
+            answers.append(preprocess_sentence(id2line[conversation[i + 1]]))
+            if max_sample and max_sample >= len(questions):
+                return questions, answers
+    return questions, answers
