@@ -6,10 +6,10 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from tqdm import tqdm
 from dataclasses import dataclass, field
-from typing import Union, Tuple, List, NewType
+from typing import Union, Tuple, List, NewType, Any
 
 tokenizer_type = tfds.deprecated.text.subword_text_encoder.SubwordTextEncoder
-DataClassType = NewType("DataClassType")
+DataClassType = NewType("DataClassType", Any)
 
 
 @dataclass
