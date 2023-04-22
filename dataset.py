@@ -6,7 +6,16 @@ import dataclasses
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tqdm import tqdm
-from typing import Union
+from typing import Union, Tuple
+
+tokenizer_type = tfds.deprecated.text.subword_text_encoder.SubwordTextEncoder
+
+
+class HyperParameters(object):
+    """This class helps to hold all the required hyper-parameters
+    in one place. we can easily add new parameters to it."""
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
 
 def remove_contractions(sentence: str) -> str:
@@ -75,3 +84,4 @@ def load_conversations(lines_filename: str, conversations_filename: str, max_sam
             if max_sample and max_sample >= len(questions):
                 return questions, answers
     return questions, answers
+
