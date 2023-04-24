@@ -159,3 +159,19 @@ def encoder_layer(params: ModelHp, name: str = "encoder_layer"):
     return tf.keras.Model(inputs=[inputs, padding_mask], outputs=outputs, name=name)
 
 
+def encoder(params: ModelHp, name: str = "encoder"):
+    inputs = tf.keras.layers.Input(shape=(None,), name="inputs")
+    padding_masks = tf.keras.layers.Input(shape=(1, 1, None), name="padding_mask")
+
+    embeddings = tf.keras.layers.Embedding(params.vocab_size, params.d_model)(inputs)
+    embeddings *= tf.math.sqrt(tf.cast(params.d_model), dtype=tf.float32)
+    embeddings = PositionalEmbedding(params.vocab_size, params.d_model)(embeddings)
+
+    outputs = tf.keras.layers.Dropout(params.dropout_rate)(embeddings)
+    for i in range(params.num_layers):
+        outputs = encoder_layer(
+            params, name=f"encoder_layer_{i}"
+        )([outputs, padding_masks])
+
+    return tf.keras.Model(inputs=[inputs, padding_masks], outputs=outputs, name=name)
+
