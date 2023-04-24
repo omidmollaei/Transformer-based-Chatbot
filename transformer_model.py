@@ -4,7 +4,6 @@ Implements original transformer model.
 
 import tensorflow as tf
 from dataclasses import dataclass
-from typing import Union
 
 
 @dataclass
@@ -89,7 +88,7 @@ class MultiHeadAttentionLayer(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super(MultiHeadAttentionLayer, self).get_config()
-        config.update({"num_heads": self.num_heads, "model_dim":self.model_dim})
+        config.update({"num_heads": self.num_heads, "model_dim": self.model_dim})
         return config
 
     def split_heads(self, inputs, batch_size):
@@ -183,7 +182,7 @@ def decoder_layer(params: ModelHp, name: str = "decoder_layer"):
     padding_mask = tf.keras.Input(shape=(1, 1, None), name="padding_mask")
 
     attention1 = MultiHeadAttentionLayer(
-        num_heads=params.num_attention_heads, d_model=params.d_model, name="attention_1"
+        num_heads=params.num_attention_heads, model_dim=params.d_model, name="attention_1"
     )(
         inputs={
             "query": inputs,
@@ -197,7 +196,7 @@ def decoder_layer(params: ModelHp, name: str = "decoder_layer"):
     attention1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)(attention1)
 
     attention2 = MultiHeadAttentionLayer(
-        num_heads=params.num_attention_heads, d_model=params.d_model, name="attention_2"
+        num_heads=params.num_attention_heads, model_dim=params.d_model, name="attention_2"
     )(
         inputs={
             "query": attention1,
@@ -242,7 +241,7 @@ def decoder(params: ModelHp, name: str = "decoder"):
     for i in range(params.num_layers):
         outputs = decoder_layer(
             params,
-            name="decoder_layer_{}".format(i),
+            name=f"decoder_layer_{i}",
         )(inputs=[outputs, enc_outputs, look_ahead_mask, padding_mask])
 
     return tf.keras.Model(
@@ -250,3 +249,29 @@ def decoder(params: ModelHp, name: str = "decoder"):
         outputs=outputs,
         name=name,
     )
+
+
+def encoder_decoder_transformer(params: ModelHp, name):
+    """Build an encoder-decoder transformer model (i.e. original transformer model) with
+     specified hyperparameters. """
+
+    inputs = tf.keras.layers.Input(shape=(None,), name="inputs")
+    dec_inputs = tf.keras.layers(shape=(None,), name="dec_inputs")
+
+    padding_mask = tf.keras.layers.Lambda(
+        create_padding_mask, output_shape=(1, 1, None), name="enc_padding_mask")(inputs)
+
+    look_ahead_mask = tf.keras.layers.Lambda(
+        create_look_ahead_mask, output_shape=(1, None, None), name="look_ahead_mask")(dec_inputs)
+
+    dec_padding_mask = tf.keras.layers.Lambda(
+        create_padding_mask, output_shape=(1, 1, None), name="dec_padding_mask")(inputs)
+
+    encoder_output = encoder(params)(inputs=[inputs, padding_mask])
+    decoder_outputs = decoder(params)(
+        inputs=[dec_inputs, encoder_output, look_ahead_mask, dec_padding_mask]
+    )
+
+    outputs = tf.keras.layers.Dense(params.vocab_size, name="outputs")(decoder_outputs)
+    return tf.keras.Model(inputs=[inputs, dec_inputs], outputs=outputs, name=name)
+
