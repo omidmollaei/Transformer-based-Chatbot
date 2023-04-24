@@ -17,3 +17,7 @@ class ModelHp:
     vocab_size: int
     num_layers: int
 
+
+def create_padding_mask(inputs: tf.Tensor):
+    mask = tf.cast(tf.math.equal(inputs, 0), tf.float32)
+    return mask[:, tf.newaxis, tf.newaxis, :]
