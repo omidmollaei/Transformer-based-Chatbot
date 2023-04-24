@@ -226,3 +226,27 @@ def decoder_layer(params: ModelHp, name: str = "decoder_layer"):
         name=name
     )
 
+
+def decoder(params: ModelHp, name: str = "decoder"):
+    inputs = tf.keras.layers.Input(shape=(None,), name="inputs")
+    enc_outputs = tf.keras.layers.Input(shape=(None, params.d_model), name="enc_outputs")
+    look_ahead_mask = tf.keras.Input(shape=(1, None, None), name="look_ahead_mask")
+    padding_mask = tf.keras.Input(shape=(1, 1, None), name="padding_mask")
+
+    embeddings = tf.keras.layers.Embedding(params.vocab_size, params.d_model)(inputs)
+    embeddings *= tf.math.sqrt(tf.cast(params.d_model, dtype=tf.float32))
+    embeddings = PositionalEncoding(params.vocab_size, params.d_model)(embeddings)
+
+    outputs = tf.keras.layers.Dropout(params.dropout_rate)(embeddings)
+
+    for i in range(params.num_layers):
+        outputs = decoder_layer(
+            params,
+            name="decoder_layer_{}".format(i),
+        )(inputs=[outputs, enc_outputs, look_ahead_mask, padding_mask])
+
+    return tf.keras.Model(
+        inputs=[inputs, enc_outputs, look_ahead_mask, padding_mask],
+        outputs=outputs,
+        name=name,
+    )
