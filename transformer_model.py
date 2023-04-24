@@ -31,15 +31,15 @@ def create_look_ahead_mask(inputs: tf.Tensor):
     return tf.maximum(mask, padding_mask)
 
 
-class PositionalEmbedding(tf.keras.layers.Layer):
+class PositionalEncoding(tf.keras.layers.Layer):
     def __init__(self, vocab_size, embedding_dim, **kwargs):
-        super(PositionalEmbedding, self).__init__(**kwargs)
+        super(PositionalEncoding, self).__init__(**kwargs)
         self.vocab_size = vocab_size
         self.embedding_dim = tf.cast(embedding_dim, dtype=tf.float32)
         self.embedding_matrix = self.build_embedding_matrix()
 
     def get_config(self):
-        config = super(PositionalEmbedding, self).get_config()
+        config = super(PositionalEncoding, self).get_config()
         config.update({"vocab_size": self.vocab_size, "embedding_dim": self.embedding_dim})
         return config
 
@@ -165,7 +165,7 @@ def encoder(params: ModelHp, name: str = "encoder"):
 
     embeddings = tf.keras.layers.Embedding(params.vocab_size, params.d_model)(inputs)
     embeddings *= tf.math.sqrt(tf.cast(params.d_model), dtype=tf.float32)
-    embeddings = PositionalEmbedding(params.vocab_size, params.d_model)(embeddings)
+    embeddings = PositionalEncoding(params.vocab_size, params.d_model)(embeddings)
 
     outputs = tf.keras.layers.Dropout(params.dropout_rate)(embeddings)
     for i in range(params.num_layers):
@@ -174,4 +174,55 @@ def encoder(params: ModelHp, name: str = "encoder"):
         )([outputs, padding_masks])
 
     return tf.keras.Model(inputs=[inputs, padding_masks], outputs=outputs, name=name)
+
+
+def decoder_layer(params: ModelHp, name: str = "decoder_layer"):
+    inputs = tf.keras.Input(shape=(None, params.d_model), name="inputs")
+    enc_outputs = tf.keras.Input(shape=(None, params.d_model), name="encoder_outputs")
+    look_ahead_mask = tf.keras.Input(shape=(1, None, None), name="look_ahead_mask")
+    padding_mask = tf.keras.Input(shape=(1, 1, None), name="padding_mask")
+
+    attention1 = MultiHeadAttentionLayer(
+        num_heads=params.num_attention_heads, d_model=params.d_model, name="attention_1"
+    )(
+        inputs={
+            "query": inputs,
+            "key": inputs,
+            "value": inputs,
+            "mask": look_ahead_mask,
+        }
+    )
+
+    attention1 += tf.cast(inputs, dtype=tf.float32)
+    attention1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)(attention1)
+
+    attention2 = MultiHeadAttentionLayer(
+        num_heads=params.num_attention_heads, d_model=params.d_model, name="attention_2"
+    )(
+        inputs={
+            "query": attention1,
+            "key": enc_outputs,
+            "value": enc_outputs,
+            "mask": padding_mask,
+        }
+    )
+    attention2 = tf.keras.layers.Dropout(params.dropout_rate)(attention2)
+    attention2 += attention1
+    attention2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)(
+        attention2 + attention1
+    )
+
+    outputs = tf.keras.layers.Dense(params.num_units, activation=params.activation)(
+        attention2
+    )
+    outputs = tf.keras.layers.Dense(params.d_model)(outputs)
+    outputs = tf.keras.layers.Dropout(params.dropout_rate)(outputs)
+    outputs += attention2
+    outputs = tf.keras.layers.LayerNormalization(epsilon=1e-6)(outputs)
+
+    return tf.keras.Model(
+        inputs=[inputs, enc_outputs, look_ahead_mask, padding_mask],
+        outputs=outputs,
+        name=name
+    )
 
