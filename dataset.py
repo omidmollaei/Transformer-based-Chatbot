@@ -17,8 +17,8 @@ class DatasetHp(object):
     """This class helps to hold all the required hyper-parameters in one place.
      we can easily add new parameters to it."""
     max_length: int
-    start_token: List[int] = field(default_factory=[0])
-    end_token: List[int] = field(default_factory=[1])
+    start_token: List[int] = field(default_factory=lambda: [0])
+    end_token: List[int] = field(default_factory=lambda: [1])
     vocab_size: int = 2**13
     batch_size: int = 32
     max_sample: Union[int, None] = None
@@ -131,11 +131,12 @@ def get_cornell_dataset(hparams: DataClassType) -> Tuple[tf.data.Dataset, tokeni
     conversations_filename = os.path.join(path_to_dataset, "movie_conversations.txt")
 
     print("loading conversations ... ")
-    questions, answers = load_conversations(hparams, lines_filename, conversations_filename)
+    questions, answers = load_conversations(lines_filename, conversations_filename, hparams.max_sample)
 
     print("initializing tokenizer ...")
     tokenizer = tfds.deprecated.text.SubwordTextEncoder.build_from_corpus(
         questions + answers, target_vocab_size=hparams.vocab_size)
+    os.makedirs("./transformer", exist_ok=True)
     tokenizer_saving_path = os.path.join("./", "transformer", "tokenizer")
     tokenizer.save_to_file(tokenizer_saving_path)  # save tokenizer
     print(f"tokenizer saved in `{tokenizer_saving_path}`")
