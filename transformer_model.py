@@ -47,7 +47,7 @@ class PositionalEncoding(tf.keras.layers.Layer):
         i = tf.cast(tf.range(self.embedding_dim)[tf.newaxis, :], dtype=tf.float32)
         angle_rads = positions * (1 / tf.pow(10000, (2 * (i // 2)) / self.embedding_dim))
 
-        sines = tf.math.sin(angle_rads[:, :2])
+        sines = tf.math.sin(angle_rads[:, ::2])
         cosines = tf.math.cos(angle_rads[:, 1::2])
 
         pos_encoding = tf.concat([sines, cosines], axis=-1)
@@ -56,7 +56,7 @@ class PositionalEncoding(tf.keras.layers.Layer):
 
     def call(self, inputs):
         seq_len = tf.shape(inputs)[1]
-        return inputs + self.embedding_dim[:, seq_len, :]
+        return inputs + self.embedding_matrix[:, seq_len, :]
 
 
 def scaled_dot_product_attention(query, key, value, mask=None):
@@ -100,7 +100,7 @@ class MultiHeadAttentionLayer(tf.keras.layers.Layer):
             lambda x: tf.transpose(x, perm=[0, 2, 1, 3])
         )(inputs)
 
-    def call(self, inputs, mask):
+    def call(self, inputs):
         query, key, value, mask = (
             inputs['query'],
             inputs['key'],
@@ -163,7 +163,7 @@ def encoder(params: ModelHp, name: str = "encoder"):
     padding_masks = tf.keras.layers.Input(shape=(1, 1, None), name="padding_mask")
 
     embeddings = tf.keras.layers.Embedding(params.vocab_size, params.d_model)(inputs)
-    embeddings *= tf.math.sqrt(tf.cast(params.d_model), dtype=tf.float32)
+    embeddings *= tf.math.sqrt(tf.cast(params.d_model, dtype=tf.float32))
     embeddings = PositionalEncoding(params.vocab_size, params.d_model)(embeddings)
 
     outputs = tf.keras.layers.Dropout(params.dropout_rate)(embeddings)
@@ -256,7 +256,7 @@ def encoder_decoder_transformer(params: ModelHp, name):
      specified hyperparameters. """
 
     inputs = tf.keras.layers.Input(shape=(None,), name="inputs")
-    dec_inputs = tf.keras.layers(shape=(None,), name="dec_inputs")
+    dec_inputs = tf.keras.layers.Input(shape=(None,), name="dec_inputs")
 
     padding_mask = tf.keras.layers.Lambda(
         create_padding_mask, output_shape=(1, 1, None), name="enc_padding_mask")(inputs)
