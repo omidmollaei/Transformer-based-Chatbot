@@ -31,32 +31,39 @@ def create_look_ahead_mask(inputs: tf.Tensor):
 
 
 class PositionalEncoding(tf.keras.layers.Layer):
-    def __init__(self, vocab_size, embedding_dim, **kwargs):
+    def __init__(self, position: int, d_model: int, **kwargs):
         super(PositionalEncoding, self).__init__(**kwargs)
-        self.vocab_size = vocab_size
-        self.embedding_dim = tf.cast(embedding_dim, dtype=tf.float32)
-        self.embedding_matrix = self.build_embedding_matrix()
+        self.position = position
+        self.d_model = d_model
+        self.pos_encoding = self.positional_encoding(position, d_model)
 
     def get_config(self):
         config = super(PositionalEncoding, self).get_config()
-        config.update({"vocab_size": self.vocab_size, "embedding_dim": self.embedding_dim})
+        config.update({"position": self.position, "d_model": self.d_model})
         return config
 
-    def build_embedding_matrix(self):
-        positions = tf.cast(tf.range(self.vocab_size)[:, tf.newaxis], dtype=tf.float32)
-        i = tf.cast(tf.range(self.embedding_dim)[tf.newaxis, :], dtype=tf.float32)
-        angle_rads = positions * (1 / tf.pow(10000, (2 * (i // 2)) / self.embedding_dim))
+    def get_angles(self, position: tf.Tensor, i: tf.Tensor, d_model: tf.Tensor):
+        angles = 1 / tf.pow(10000, (2 * (i // 2)) / d_model)
+        return position * angles
 
-        sines = tf.math.sin(angle_rads[:, ::2])
+    def positional_encoding(self, position: int, d_model: int):
+        angle_rads = self.get_angles(
+            position=tf.cast(tf.range(position)[:, tf.newaxis], dtype=tf.float32),
+            i=tf.cast(tf.range(d_model)[tf.newaxis, :], dtype=tf.float32),
+            d_model=tf.cast(d_model, dtype=tf.float32),
+        )
+
+        # apply sin to even index in the array
+        sines = tf.math.sin(angle_rads[:, 0::2])
+        # apply cos to odd index in the array
         cosines = tf.math.cos(angle_rads[:, 1::2])
 
         pos_encoding = tf.concat([sines, cosines], axis=-1)
         pos_encoding = pos_encoding[tf.newaxis, ...]
         return pos_encoding
 
-    def call(self, inputs):
-        seq_len = tf.shape(inputs)[1]
-        return inputs + self.embedding_matrix[:, seq_len, :]
+    def call(self, inputs: tf.Tensor):
+        return inputs + self.pos_encoding[:, : tf.shape(inputs)[1], :]
 
 
 def scaled_dot_product_attention(query, key, value, mask=None):
