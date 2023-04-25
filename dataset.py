@@ -136,11 +136,15 @@ def get_cornell_dataset(hparams: DataClassType) -> Tuple[tf.data.Dataset, tokeni
     print("initializing tokenizer ...")
     tokenizer = tfds.deprecated.text.SubwordTextEncoder.build_from_corpus(
         questions + answers, target_vocab_size=hparams.vocab_size)
-    tokenizer.save_to_file(os.path.join("./", "transformer", "tokenizer"))  # save tokenizer
+    tokenizer_saving_path = os.path.join("./", "transformer", "tokenizer")
+    tokenizer.save_to_file(tokenizer_saving_path)  # save tokenizer
+    print(f"tokenizer saved in `{tokenizer_saving_path}`")
 
+    print(f"vocab size updated from {hparams.vocab_size} to", end=" ")
     hparams.start_token = [tokenizer.vocab_size]
     hparams.end_token = [tokenizer.vocab_size + 1]
     hparams.vocab_size = tokenizer.vocab_size + 2
+    print(hparams.vocab_size)
 
     print("tokenization ... ")
     questions, answers = tokenize_and_filter(hparams, tokenizer, questions, answers)
@@ -155,3 +159,8 @@ def get_cornell_dataset(hparams: DataClassType) -> Tuple[tf.data.Dataset, tokeni
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
     return dataset, tokenizer
+
+
+def load_tokenizer(path: str = os.path.join("./")):
+    tokenizer = tfds.deprecated.text.SubwordTextEncoder.load_from_file(path)
+    return tokenizer
