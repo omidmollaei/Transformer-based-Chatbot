@@ -87,7 +87,7 @@ def load_conversations(lines_filename: str, conversations_filename: str, max_sam
         for i in range(len(conversation) - 1):
             questions.append(preprocess_sentence(id2line[conversation[i]]))
             answers.append(preprocess_sentence(id2line[conversation[i + 1]]))
-            if max_sample and max_sample >= len(questions):
+            if max_sample and  len(questions) >= max_sample:
                 return questions, answers
     return questions, answers
 
